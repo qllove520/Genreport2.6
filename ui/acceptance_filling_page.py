@@ -66,6 +66,8 @@ class AcceptanceTestFillingPage(QWidget):
         self.log_output.setReadOnly(True)
         self.log_output.setFixedHeight(150)
         main_layout.addWidget(self.log_output)
+        
+
 
     def _create_field_widgets(self):
         """Dynamically creates and lays out QLabel and QLineEdit for all fields in QGridLayout"""
