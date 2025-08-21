@@ -6,7 +6,8 @@ from PyQt5.QtWidgets import (
     QLineEdit, QPushButton, QTextEdit, QFileDialog, QMessageBox, QProgressDialog, QGroupBox, QCheckBox
 )
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QTextCursor
+from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor
+from datetime import datetime
 
 from core.selenium_worker import SeleniumWorker
 from core.settings_manager import SettingsManager
@@ -32,17 +33,71 @@ class ZentaoExportPage(QWidget):
 
         # 禅道登录信息 GroupBox
         login_group_box = QGroupBox("禅道登录信息")
+        login_group_box.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                border: 2px solid #4CAF50;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 5px;
+                left: 10px;
+                color: #4CAF50;
+            }
+        """)
         login_layout = QVBoxLayout()
 
         self.account_input = self._create_input_field(login_layout, "账号:", "")
         self.account_input.setPlaceholderText("请输入禅道账号")
+        self.account_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #4CAF50;
+            }
+        """)
 
         self.password_input = self._create_input_field(login_layout, "密码:", "", is_password=True)
         self.password_input.setPlaceholderText("请输入禅道密码")
+        self.password_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #4CAF50;
+            }
+        """)
 
         # 新增登录测试按钮
         login_test_layout = QHBoxLayout()
         self.test_login_btn = QPushButton("登录并获取用户信息")
+        self.test_login_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border-radius: 5px;
+                font-size: 14px;
+                padding: 8px 15px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #39843c;
+            }
+        """)
         self.test_login_btn.clicked.connect(self._test_login)
         self.test_login_btn.setFixedHeight(30)
         login_test_layout.addWidget(self.test_login_btn)
@@ -59,18 +114,72 @@ class ZentaoExportPage(QWidget):
 
         # 全局参数设置 GroupBox
         global_settings_group_box = QGroupBox("全局参数设置")
+        global_settings_group_box.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px;
+                font-weight: bold;
+                border: 2px solid #2196F3;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 5px;
+                left: 10px;
+                color: #2196F3;
+            }
+        """)
         global_settings_layout = QVBoxLayout()
 
         self.product_name_input = self._create_input_field(global_settings_layout, "产品名称:", "")
         self.product_name_input.setPlaceholderText("请输入产品名称关键字，例如\"2600F\"")
+        self.product_name_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #2196F3;
+            }
+        """)
 
         # 测试单号输入框和保存按钮
         test_report_id_layout = QHBoxLayout()
         self.test_report_id_label = QLabel("测试单号:")
         self.test_report_id_input = QLineEdit(TEST_REPORT_ID_DEFAULT)
-        self.test_report_id_input.setPlaceholderText("请输入测试单号，例如\"11111111111\"")
+        self.test_report_id_input.setPlaceholderText("请输入测试单号，例如\"CSSQ20250530001\"")
+        self.test_report_id_input.setStyleSheet("""
+            QLineEdit {
+                padding: 8px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #2196F3;
+            }
+        """)
         self.save_test_report_id_button = QPushButton("保存测试单号")
         self.save_test_report_id_button.clicked.connect(self._save_test_report_id)
+        self.save_test_report_id_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border-radius: 5px;
+                font-size: 14px;
+                padding: 8px 15px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #1565C0;
+            }
+        """)
         test_report_id_layout.addWidget(self.test_report_id_label)
         test_report_id_layout.addWidget(self.test_report_id_input)
         test_report_id_layout.addWidget(self.save_test_report_id_button)
@@ -81,8 +190,32 @@ class ZentaoExportPage(QWidget):
         self.download_dir_label = QLabel("下载目录:")
         self.download_dir_display = QLineEdit(DOWNLOAD_DIR)
         self.download_dir_display.setReadOnly(True)
+        self.download_dir_display.setStyleSheet("""
+            QLineEdit {
+                padding: 8px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                font-size: 14px;
+                background-color: #f5f5f5;
+            }
+        """)
         self.browse_button = QPushButton("浏览...")
         self.browse_button.clicked.connect(self._browse_download_dir)
+        self.browse_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border-radius: 5px;
+                font-size: 14px;
+                padding: 8px 15px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:pressed {
+                background-color: #1565C0;
+            }
+        """)
         download_dir_layout.addWidget(self.download_dir_label)
         download_dir_layout.addWidget(self.download_dir_display)
         download_dir_layout.addWidget(self.browse_button)
@@ -98,6 +231,22 @@ class ZentaoExportPage(QWidget):
         self.export_button = QPushButton("开始导出")
         self.export_button.setFixedHeight(40)
         self.export_button.clicked.connect(self._start_export)
+        self.export_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border-radius: 5px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 10px 20px;
+            }
+            QPushButton:hover {
+                background-color: #FB8C00;
+            }
+            QPushButton:pressed {
+                background-color: #F57C00;
+            }
+        """)
         button_layout.addWidget(self.export_button)
 
         # 刷新用户信息按钮
@@ -105,6 +254,26 @@ class ZentaoExportPage(QWidget):
         self.refresh_user_btn.setFixedHeight(40)
         self.refresh_user_btn.clicked.connect(self.refresh_user_info)
         self.refresh_user_btn.setEnabled(False)  # 默认禁用
+        self.refresh_user_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9E9E9E;
+                color: white;
+                border-radius: 5px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 10px 20px;
+            }
+            QPushButton:hover {
+                background-color: #757575;
+            }
+            QPushButton:pressed {
+                background-color: #616161;
+            }
+            QPushButton:disabled {
+                background-color: #BDBDBD;
+                color: #E0E0E0;
+            }
+        """)
         button_layout.addWidget(self.refresh_user_btn)
 
         main_layout.addLayout(button_layout)
@@ -112,7 +281,16 @@ class ZentaoExportPage(QWidget):
         # 日志输出区域
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
-        self.log_output.setStyleSheet("background-color: #f0f0f0; color: #333; font-family: 'Consolas', 'Monospace';")
+        self.log_output.setStyleSheet("""
+            QTextEdit {
+                background-color: #f8f8f8;
+                color: #333;
+                font-family: 'Consolas', 'Monospace';
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                padding: 10px;
+            }
+        """)
         main_layout.addWidget(self.log_output)
 
     def _create_input_field(self, layout, label_text, default_text="", is_password=False):
@@ -155,12 +333,12 @@ class ZentaoExportPage(QWidget):
             return
 
         self.log_output.clear()
-        self.update_log("--- 开始测试登录 ---", False)
+        self.update_log("--- 开始登录 ---", False)
         self.test_login_btn.setEnabled(False)
 
         # 创建进度对话框
         self.progress_dialog = QProgressDialog("正在登录并获取用户信息...", "取消", 0, 100, self)
-        self.progress_dialog.setWindowTitle("登录测试")
+        self.progress_dialog.setWindowTitle("登录中")
         self.progress_dialog.setWindowModality(Qt.WindowModal)
         self.progress_dialog.setMinimumDuration(0)
         self.progress_dialog.setValue(0)
@@ -308,17 +486,27 @@ class ZentaoExportPage(QWidget):
             self.update_log("没有正在运行的任务可以取消。", False)
 
     def update_log(self, message, is_error=False):
-        """Appends a message to the log QTextEdit."""
+        """Appends a message to the log QTextEdit with a timestamp."""
+
+        # 获取当前日期和时间
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # 格式化带有时间戳的消息
+        formatted_message = f"[{timestamp}] {message}"
+
         cursor = self.log_output.textCursor()
-        format = cursor.charFormat()
+        format = QTextCharFormat()
+        # 设置文本颜色
         if is_error:
-            format.setForeground(Qt.red)
+            format.setForeground(QColor("red"))
         else:
-            format.setForeground(Qt.black)
-        cursor.setCharFormat(format)
-        self.log_output.append(message)
-        cursor = self.log_output.textCursor()
+            format.setForeground(QColor("black"))
+        # 使用 insertText 方法来应用格式
         cursor.movePosition(QTextCursor.End)
+        cursor.insertText(formatted_message, format)
+        # 插入换行符
+        cursor.insertText('\n')
+        # 确保光标移动到末尾
         self.log_output.setTextCursor(cursor)
 
     def save_settings(self):
@@ -352,10 +540,8 @@ class ZentaoExportPage(QWidget):
         self.test_report_id_input.setText(loaded_settings.get("test_report_id", TEST_REPORT_ID_DEFAULT))
         self.download_dir_display.setText(loaded_settings.get("download_dir", DOWNLOAD_DIR))
         self.headless_checkbox.setChecked(loaded_settings.get("headless_mode", HEADLESS_MODE_DEFAULT))
-
-        # 不自动加载账号密码，保证安全性
-        self.account_input.setText("")
-        self.password_input.setText("")
+        self.account_input.setText(loaded_settings.get("account", ""))
+        self.password_input.setText(loaded_settings.get("password", ""))
 
         # 确保默认下载目录存在
         initial_download_dir = self.download_dir_display.text()
