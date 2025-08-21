@@ -3,8 +3,11 @@
 import os
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QMessageBox, QSplitter
 from PyQt5.QtCore import Qt
+from sympy import false
+
 from ui.zentao_export_page import ZentaoExportPage
-from ui.acceptance_filling_page import AcceptanceTestFillingPage
+# Remove the unused import that's causing the error
+# from ui.acceptance_filling_page import AcceptanceTestFillingPage
 from ui.ExcelTool import ExcelTool
 from ui.data_chart_page import ZentaoDataChartPage
 from ui.user_info_widget import UserInfoWidget
@@ -45,7 +48,7 @@ class MainApplication(QWidget):
         self.tabs.addTab(self.data_chart_page, "禅道数据表单与验收图插入")
         self.tabs.addTab(self.excel_tool, "验收测试结果填充")
         # 历史BUG查询页面默认隐藏，登录后显示
-        self.bug_query_tab_index = self.tabs.addTab(self.bug_query_page, "历史BUG查询")
+        self.bug_query_tab_index = self.tabs.addTab(self.bug_query_page, "历史BUG查询处理")
         self.tabs.setTabEnabled(self.bug_query_tab_index, False)  # 默认禁用
 
     def _setup_layout(self):
