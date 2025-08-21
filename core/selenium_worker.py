@@ -54,11 +54,12 @@ class SeleniumWorker(QThread):
         self.driver = None
         self.user_info = UserInfo()
 
+
     def run(self):
         """Main execution logic for Selenium operations."""
         try:
             self.log_signal.emit("初始化浏览器中...", False)
-            self.progress_signal.emit(5)
+            self.progress_signal.emit(15)
             self.driver = self._setup_driver()
             if not self.driver:
                 self.finished_signal.emit(False, "浏览器启动失败。")
@@ -87,12 +88,12 @@ class SeleniumWorker(QThread):
             self.log_signal.emit(f"查找产品: '{self.product_name}'...", False)
             self.progress_signal.emit(30)
             product_id = self._find_product_id_by_name(self.driver, self.base_url, self.product_name)
-
-            if not product_id:
-                self.finished_signal.emit(False, f"未找到产品：'{self.product_name}'。")
+            project_id = self._find_project_id_by_name(self.driver, self.base_url, self.product_name)
+            if not product_id and not project_id:
+                self.finished_signal.emit(False, f"未找到产品ID和项目ID：'{self.product_name}'。")
                 return
 
-            self.log_signal.emit(f"产品ID: {product_id}。开始导出...", False)
+            self.log_signal.emit(f"产品ID,项目ID: {product_id},{project_id}。开始导出...", False)
             self.progress_signal.emit(40)
 
             # Navigate to product view and browse pages first to establish context
@@ -113,18 +114,18 @@ class SeleniumWorker(QThread):
             self.log_signal.emit("需求导出完成。", False)
             self.progress_signal.emit(70)
 
-            # Navigate to QA/Bug browse page before exporting bugs
-            self.log_signal.emit(f"导航到 QA 浏览页...", False)
-            self.driver.get(f"{self.base_url}/qa/")
+            # Navigate to Project/Bug browse page before exporting bugs
+            self.log_signal.emit(f"导航到 项目栏目...", False)
+            self.driver.get(f"{self.base_url}/project-index-no.html")
             time.sleep(1)
-            self.log_signal.emit(f"导航到 Bug 浏览页...", False)
-            self.driver.get(f"{self.base_url}/bug-browse-{product_id}.html")
+            self.driver.get(f"{self.base_url}/project-bug-{project_id}-status,id_desc-0-bysearch-myQueryID.html")
             time.sleep(1)
+            self._search_bugs()
 
             # Export Unclosed Bugs
             self.log_signal.emit("\n--- 导出未关闭 Bug 中 ---", False)
             self.progress_signal.emit(80)
-            if not self._export_unclosed_bugs(self.driver, self.base_url, product_id, '[公共]  验收报告V1.0'):
+            if not self._export_unclosed_bugs(self.driver, self.base_url,product_id, project_id, '[公共]  验收报告V1.0'):
                 self.finished_signal.emit(False, "导出未关闭 Bug 失败。")
                 return
             self.log_signal.emit("未关闭 Bug 导出完成。", False)
@@ -154,6 +155,76 @@ class SeleniumWorker(QThread):
             if self.driver:
                 self.log_signal.emit("关闭浏览器中...", False)
                 self.driver.quit()
+
+    def _search_bugs(self):
+        """
+        搜索条件: Bug状态 != 已关闭
+        """
+        try:
+            self.log_signal.emit(f"导航到 Bug 浏览页...", False)
+            # 等待页面主表格加载，确保页面已稳定
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, '.main-table'))
+            )
+
+            self.log_signal.emit("设置搜索条件...", False)
+
+            # 1. 设置 "Bug状态"
+            # 找到 Bug状态 的可见容器并点击展开下拉菜单
+            bug_status_chosen_container_xpath = "//div[@class='chosen-container chosen-container-single chosen-search-with-search' and preceding-sibling::span[text()='Bug状态']]"
+            bug_status_chosen_span_xpath = bug_status_chosen_container_xpath + "//a[@class='chosen-single']/span"
+            bug_status_chosen_a_xpath = bug_status_chosen_container_xpath + "//a[@class='chosen-single']"
+
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, bug_status_chosen_a_xpath))
+            ).click()
+
+            # 等待下拉列表出现并点击 "Bug状态" 选项
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//div[@class='chosen-drop']//li[text()='Bug状态']"))
+            ).click()
+
+            # 2. 设置 "操作符 !="
+            # 找到操作符下拉菜单的可见容器并点击展开
+            operator_chosen_container_xpath = "//div[@class='chosen-container chosen-container-single' and preceding-sibling::span[text()='!']]"
+            operator_chosen_a_xpath = operator_chosen_container_xpath + "//a[@class='chosen-single']"
+
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, operator_chosen_a_xpath))
+            ).click()
+
+            # 等待下拉列表出现并点击 "!=" 选项
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//div[@class='operator1']//li[text()='!=']"))
+            ).click()
+
+            # 3. 设置 "已关闭"
+            # 找到已关闭状态下拉菜单的可见容器并点击展开
+            closed_status_chosen_container_xpath = "//div[@class='chosen-container chosen-container-single']"
+            closed_status_chosen_a_xpath = closed_status_chosen_container_xpath + "//a[@class='picker-search']"
+
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, closed_status_chosen_a_xpath))
+            ).click()
+
+            # 等待下拉列表出现并点击 "已关闭" 选项
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//div[@class='picker-search']//li[text()='已关闭']"))
+            ).click()
+
+            self.log_signal.emit("点击搜索按钮...", False)
+
+            # 4. 点击搜索按钮
+            search_button_xpath = "//button[contains(text(), '搜索')]"
+            search_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, search_button_xpath))
+            )
+            search_button.click()
+
+            self.log_signal.emit("搜索已成功触发。", False)
+
+        except Exception as e:
+            self.log_signal.emit(f"搜索 BUG 失败: {e}", True)
 
     def _get_user_info(self):
         """获取当前登录用户的详细信息 - 基于实际页面结构"""
@@ -456,18 +527,35 @@ class SeleniumWorker(QThread):
         self.log_signal.emit(f"导航到登录页: {base_url}/user-login.html", False)
         try:
             driver.get(f"{base_url}/user-login.html")
-            WebDriverWait(driver, 15).until(EC.visibility_of_element_located((By.ID, 'account')))
+            # # WebDriverWait(driver, 15).until(EC.visibility_of_element_located((By.ID, 'account')))
+            # WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.ID, 'account')))
+            #
+            # account_input = driver.find_element(By.ID, 'account')
+            # password_input = driver.find_element(By.NAME, 'password')
+            # login_button = driver.find_element(By.ID, 'submit')
+            #
+            # account_input.send_keys(account)
+            # password_input.send_keys(password)
 
-            account_input = driver.find_element(By.ID, 'account')
-            password_input = driver.find_element(By.NAME, 'password')
-            login_button = driver.find_element(By.ID, 'submit')
+            wait = WebDriverWait(driver, 2)  # 等待时间缩短
+            account_input = wait.until(EC.visibility_of_element_located((By.ID, 'account')))
+            password_input = wait.until(EC.visibility_of_element_located((By.NAME, 'password')))
 
+            # 一旦输入框可见，就直接输入账号密码
+            account_input.clear()
             account_input.send_keys(account)
+
+            password_input.clear()
             password_input.send_keys(password)
+
+            # 登录按钮可以改为 clickable（因为要点击）
+            login_button = wait.until(EC.element_to_be_clickable((By.ID, 'submit')))
+            login_button.click()
+
             self.log_signal.emit("点击登录按钮...", False)
             login_button.click()
 
-            WebDriverWait(driver, 30).until(
+            WebDriverWait(driver, 15).until(
                 EC.any_of(
                     EC.url_changes(f"{base_url}/user-login.html"),
                     EC.presence_of_element_located((By.CSS_SELECTOR, '.main-header .user-name'))
@@ -497,7 +585,7 @@ class SeleniumWorker(QThread):
             # This URL might be specific to your ZenTao version/setup.
             # You might need to adjust it if products are not listed on this exact page.
             driver.get(f"{base_url}/product-all-0-0-noclosed-order_desc-849-2000-1.html")
-            WebDriverWait(driver, 10).until(
+            WebDriverWait(driver, 15).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href*="product-view"]'))
             )
             self.log_signal.emit(f'查找产品 \'{product_name}\'...', False)
@@ -523,6 +611,40 @@ class SeleniumWorker(QThread):
         except Exception as e:
             self.log_signal.emit(f"产品搜索异常: {e}", True)
             self.log_signal.emit(traceback.format_exc(), True)
+            return None
+
+    def _find_project_id_by_name(self, driver, base_url, project_name):
+        """Internal helper for finding project ID."""
+        self.log_signal.emit(f"导航到项目列表页...", False)
+        try:
+            project_path = os.path.join(os.getcwd(), "config", "demo.html")
+            print('------project_path:',{os.getcwd()},{project_path})
+            driver.get(project_path)
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, 'a[href*="project-view"]'))
+            )
+            self.log_signal.emit(f'查找项目 \'{project_name}\'...', False)
+            project_links = driver.find_elements(By.CSS_SELECTOR, 'a[href*="/project-view-"]')
+            for link in project_links:
+                if project_name in link.text:
+                    href = link.get_attribute('href')
+                    try:
+                        project_id = href.split('-')[-1].split('.')[0]
+                        self.log_signal.emit(f"找到项目 '{project_name}'，ID: {project_id}", False)
+                        return project_id
+                    except IndexError:
+                        self.log_signal.emit(f"警告: 无法解析项目ID: {href}", True)
+                        continue
+            self.log_signal.emit(f"未找到项目：{project_name}。", True)
+            return None
+        except TimeoutException:
+            self.log_signal.emit(f"项目搜索超时。", True)
+            return None
+        except NoSuchElementException as e:
+            self.log_signal.emit(f"项目搜索页元素未找到: {e}", True)
+            return None
+        except Exception as e:
+            self.log_signal.emit(f"项目搜索异常: {e}", True)
             return None
 
     def _export_data_to_file(self, driver, export_page_url, data_type_name="数据",
@@ -758,9 +880,10 @@ class SeleniumWorker(QThread):
         export_page_url = f"{base_url}/story-export-{product_id}-id_desc-0-unclosed-story.html"
         return self._export_data_to_file(driver, export_page_url, "需求", template_keyword)
 
-    def _export_unclosed_bugs(self, driver, base_url, product_id, template_keyword):
+    #http://10.200.10.220/zentao/project-bug-2135-status,id_desc-0-unresolved.html
+    def _export_unclosed_bugs(self, driver, base_url,product_id, project_id, template_keyword):
         """Internal helper for exporting unclosed bugs."""
-        return self._export_data_to_file(driver, f"{base_url}/bug-export-{product_id}-openedDate_desc-unclosed.html",
+        return self._export_data_to_file(driver, f"{base_url}/bug-export-{product_id}-status,id_desc--{project_id}.html",
                                          "未关闭的 Bug", template_keyword)
 
     def _export_test_cases(self, driver, base_url, product_id, template_keyword):
@@ -775,13 +898,13 @@ class BugQueryWorker(QThread):
     progress_signal = pyqtSignal(int)
     bug_data_signal = pyqtSignal(list)  # 发送BUG数据
 
-    def __init__(self, manager_account, manager_password, operator_name, product_name, query_params):
+    def __init__(self, manager_account, manager_password, operator_name, project_id, query_params):
         super().__init__()
         self.base_url = ZEN_TAO_BASE_URL
         self.manager_account = manager_account
         self.manager_password = manager_password
         self.operator_name = operator_name
-        self.product_name = product_name
+        self.product_id = project_id
         self.query_params = query_params  # 查询参数字典
         self.driver = None
 
@@ -847,8 +970,12 @@ class BugQueryWorker(QThread):
     def _login(self):
         """管理员登录"""
         try:
+            # self.driver.get(f"{self.base_url}/user-login.html")
+            # WebDriverWait(self.driver, 15).until(EC.visibility_of_element_located((By.ID, 'account')))
+
             self.driver.get(f"{self.base_url}/user-login.html")
-            WebDriverWait(self.driver, 15).until(EC.visibility_of_element_located((By.ID, 'account')))
+            # 调整等待策略，等待 'account' 输入框可被点击
+            WebDriverWait(self.driver, 15).until(EC.element_to_be_clickable((By.ID, 'account')))
 
             account_input = self.driver.find_element(By.ID, 'account')
             password_input = self.driver.find_element(By.NAME, 'password')
@@ -869,14 +996,14 @@ class BugQueryWorker(QThread):
                 return False
 
             # 添加操作备注
-            self._add_operation_log()
+            self._add_operation_log_signal.emit()
             return True
 
         except Exception as e:
             self.log_signal.emit(f"登录异常: {e}", True)
             return False
 
-    def _add_operation_log(self):
+    def _add_operation_log_signal(self):
         """添加操作日志备注"""
         try:
             # 这里可以实现向系统日志或数据库添加操作记录的逻辑
@@ -901,7 +1028,8 @@ class BugQueryWorker(QThread):
             query_params = []
             if self.product_name:
                 # 这里需要先获取产品ID
-                product_id = self._find_product_id(self.product_name)
+                product_id = self._find_project_id(self.product_name)
+                print(f'product id----{product_id}')
                 if product_id:
                     query_params.append(f"product={product_id}")
 
@@ -914,9 +1042,10 @@ class BugQueryWorker(QThread):
                 query_params.append(f"openedDate={self.query_params['date_from']}")
 
             query_url = base_query_url
+
             if query_params:
                 query_url += "?" + "&".join(query_params)
-
+            print(f'query_params:{query_params},query_url:{query_url}')
             self.driver.get(query_url)
             WebDriverWait(self.driver, 15).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, 'table, .main-table'))
